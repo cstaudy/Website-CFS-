@@ -1,0 +1,67 @@
+name: Bug melden
+description: Reproduzierbaren Fehler in Website, Launcher, Widgets, Games oder Cut Studio melden.
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Bitte keine API-Keys, Passwörter, Tokens, privaten Logs oder Kundendaten einfügen.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Bereich
+      options:
+        - Website / Account
+        - Widget Studio
+        - Scene Studio
+        - Launcher
+        - TikTok LIVE Bridge
+        - Games
+        - Cut Studio
+        - Billing
+        - Release / Updater
+        - Sonstiges
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "z. B. Backend 3.10.0 / Launcher 0.40.0"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Schritte zum Reproduzieren
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Erwartetes Verhalten
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Tatsächliches Verhalten
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Umgebung
+      placeholder: "Windows-Version, OBS-Version, Browser, Provider etc. — keine Secrets"
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Prüfung
+      options:
+        - label: Ich habe keine Secrets oder privaten Zugangsdaten eingefügt.
+          required: true

@@ -1,0 +1,100 @@
+name: Production Deployment Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_backend_version:
+        description: "Expected backend version after deploy"
+        required: true
+        default: "3.12.0"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cfs-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Backend dependencies
+        run: npm install
+
+      - name: Backend syntax
+        run: npm run check
+
+      - name: Launcher release policy tests
+        run: node tools/launcher-release-policy-test.mjs
+
+      - name: Launcher dependencies
+        working-directory: launcher
+        run: npm install
+
+      - name: Launcher release gate
+        working-directory: launcher
+        run: npm run release:gate
+
+      - name: Upload release-gate report
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-release-gate
+          path: |
+            launcher/reports/release-gate.json
+            launcher/reports/release-gate.md
+
+  deploy-render:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Trigger Render deploy when hook exists
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL is not configured. Validation passed; deploy trigger skipped."
+            exit 0
+          fi
+          curl --fail --silent --show-error --request POST "$RENDER_DEPLOY_HOOK_URL"
+          echo "Render deploy triggered."
+
+      - name: Production canary verification
+        env:
+          CFS_PRODUCTION_URL: ${{ vars.CFS_PRODUCTION_URL }}
+        run: |
+          if [ -z "$CFS_PRODUCTION_URL" ]; then
+            echo "CFS_PRODUCTION_URL repository variable is not configured. Canary verification skipped."
+            exit 0
+          fi
+          node tools/production-canary-check.mjs \
+            --url "$CFS_PRODUCTION_URL" \
+            --expected-version "${{ inputs.expected_backend_version }}" \
+            --mode canary \
+            --out reports/production-canary-evidence.json
+
+      - name: Upload production canary evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-canary-evidence
+          if-no-files-found: ignore
+          path: reports/production-canary-evidence.json

@@ -1,0 +1,141 @@
+name: Build Creator Suite Launcher
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    environment: windows-release
+    defaults:
+      run:
+        working-directory: launcher
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Verify tag and package version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $package = Get-Content package.json | ConvertFrom-Json
+          $tag = "${{ github.ref_name }}".TrimStart("v")
+          if ($package.version -ne $tag) {
+            throw "Tag v$tag passt nicht zur Launcher-Version $($package.version)."
+          }
+
+      - name: Website release policy test
+        working-directory: .
+        run: node tools/launcher-release-policy-test.mjs
+
+      - name: FFmpeg bundle preparation check
+        run: npm run ffmpeg:check
+
+      - name: QA
+        run: npm run qa
+
+      - name: Release Gate
+        run: npm run release:gate
+
+      - name: Upload Release Gate report
+        uses: actions/upload-artifact@v4
+        with:
+          name: cfs-release-gate-${{ github.ref_name || 'manual' }}
+          path: |
+            launcher/reports/release-gate.json
+            launcher/reports/release-gate.md
+
+      - name: Build Windows Setup + Portable
+        run: npm run dist:win
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      - name: Generate SHA256 checksums
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem dist -File | Where-Object {
+            $_.Extension -in ".exe",".yml",".blockmap"
+          }
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($file.Name)"
+          }
+          $lines | Set-Content -Encoding ascii dist/SHA256SUMS.txt
+
+      - name: Generate release manifest
+        run: npm run manifest:release
+
+      - name: Inspect Windows Authenticode signatures
+        shell: pwsh
+        run: |
+          $exe = @(Get-ChildItem dist -File -Filter *.exe)
+          $valid = $exe.Count -gt 0
+          foreach ($file in $exe) {
+            $sig = Get-AuthenticodeSignature $file.FullName
+            Write-Host "$($file.Name): $($sig.Status)"
+            if ($sig.Status -ne "Valid") { $valid = $false }
+          }
+          if ($valid) {
+            "CFS_WINDOWS_SIGNATURE_STATUS=valid" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          } else {
+            "CFS_WINDOWS_SIGNATURE_STATUS=unsigned_or_invalid" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          }
+
+      - name: Generate Windows build evidence
+        run: node tools/generate-windows-build-evidence.mjs
+
+      - name: Generate Windows acceptance templates
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          node ../tools/generate-release-acceptance-template.mjs --protocol windows_install --release-version "$version" --out dist/windows-install-acceptance-template.json
+          node ../tools/generate-release-acceptance-template.mjs --protocol updater_e2e --release-version "$version" --out dist/updater-e2e-acceptance-template.json
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cfs-creator-suite-windows-${{ github.ref_name || 'manual' }}
+          path: |
+            launcher/dist/*.exe
+            launcher/dist/*.yml
+            launcher/dist/*.blockmap
+            launcher/dist/SHA256SUMS.txt
+            launcher/dist/release-manifest.json
+            launcher/dist/windows-build-evidence.json
+            launcher/dist/windows-install-acceptance-template.json
+            launcher/dist/updater-e2e-acceptance-template.json
+            launcher/reports/release-gate.json
+            launcher/reports/release-gate.md
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            launcher/dist/*.exe
+            launcher/dist/*.yml
+            launcher/dist/*.blockmap
+            launcher/dist/SHA256SUMS.txt
+            launcher/dist/release-manifest.json
+            launcher/dist/windows-build-evidence.json
+            launcher/dist/windows-install-acceptance-template.json
+            launcher/dist/updater-e2e-acceptance-template.json
+            launcher/reports/release-gate.json
+            launcher/reports/release-gate.md

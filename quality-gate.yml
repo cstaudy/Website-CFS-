@@ -1,0 +1,70 @@
+name: Creator Suite Quality Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cfs-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository-quality:
+    name: Repository Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Backend / Repository V41 QA
+        run: npm run check:v41
+
+      - name: Generate GitHub bootstrap plan
+        run: node tools/github-bootstrap-plan-v41.mjs .
+
+      - name: Upload bootstrap plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-bootstrap-plan-${{ github.sha }}
+          path: |
+            reports/github-bootstrap-plan.json
+            reports/github-bootstrap-plan.md
+
+  launcher-quality:
+    name: Launcher Release Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Launcher cumulative release gate
+        working-directory: launcher
+        run: npm run release:gate
+
+      - name: Upload release-gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-release-gate-${{ github.sha }}
+          if-no-files-found: ignore
+          path: |
+            launcher/reports/release-gate.json
+            launcher/reports/release-gate.md

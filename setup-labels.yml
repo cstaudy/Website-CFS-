@@ -1,0 +1,32 @@
+name: Setup Creator Suite Labels
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create / update labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh label create "bug" --color "d73a4a" --description "Reproduzierbarer Fehler" --force
+          gh label create "release-acceptance" --color "0e8a16" --description "Echter Release-/Feldtest" --force
+          gh label create "launcher" --color "148CFF" --description "Creator Suite Desktop Launcher" --force
+          gh label create "backend" --color "20D4E6" --description "Website / Backend / API" --force
+          gh label create "billing" --color "fbca04" --description "Billing / Subscription / Stripe" --force
+          gh label create "tiktok-live" --color "5319e7" --description "TikTok LIVE / Provider / Bridge" --force
+          gh label create "obs" --color "006b75" --description "OBS / Output / Browser Source" --force
+          gh label create "cut-studio" --color "bfdadc" --description "Cut Studio / Local Media Engine" --force
+          gh label create "games" --color "c2e0c6" --description "Creator Games" --force
+          gh label create "release-blocker" --color "b60205" --description "Blockiert Production GO" --force
+          gh label create "dependencies" --color "0366d6" --description "Dependency Update" --force

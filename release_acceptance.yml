@@ -1,0 +1,54 @@
+name: Release-Abnahme / Feldtest
+description: Reales Windows-, OBS-, TikTok-, Billing- oder Updater-Testergebnis dokumentieren.
+title: "[ACCEPTANCE] "
+labels: ["release-acceptance"]
+body:
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Protokoll
+      options:
+        - Windows 11 Installer
+        - Installed Updater E2E
+        - Stripe Testmode
+        - OBS Output
+        - TikTok LIVE
+        - Production Canary
+        - Rollback
+    validations:
+      required: true
+  - type: input
+    id: release
+    attributes:
+      label: Release-Version
+      placeholder: "0.40.0 / Backend 4.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Ergebnis
+      options:
+        - PASS
+        - FAIL
+        - HOLD
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence / Referenzen
+      description: GitHub-Run, Ticket, Testgerät oder andere nachvollziehbare Referenz. Keine Secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notizen
+  - type: checkboxes
+    id: real
+    attributes:
+      label: Bestätigung
+      options:
+        - label: Das Ergebnis stammt aus einem echten Feldtest und nicht nur aus Simulator-/Fake-Daten.
+          required: true

@@ -1,0 +1,69 @@
+name: Production Canary / Rollback Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Evidence mode"
+        required: true
+        default: "canary"
+        type: choice
+        options:
+          - canary
+          - rollback
+      expected_backend_version:
+        description: "Expected /api/health backend version"
+        required: true
+        default: "3.12.0"
+        type: string
+      require_billing:
+        description: "Also require billing config/webhook readiness"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify production target
+        env:
+          CFS_PRODUCTION_URL: ${{ vars.CFS_PRODUCTION_URL }}
+          MODE: ${{ inputs.mode }}
+          EXPECTED_VERSION: ${{ inputs.expected_backend_version }}
+          REQUIRE_BILLING: ${{ inputs.require_billing }}
+        run: |
+          if [ -z "$CFS_PRODUCTION_URL" ]; then
+            echo "CFS_PRODUCTION_URL repository variable is required."
+            exit 1
+          fi
+          args=(
+            --url "$CFS_PRODUCTION_URL"
+            --expected-version "$EXPECTED_VERSION"
+            --mode "$MODE"
+            --out "reports/production-${MODE}-evidence.json"
+          )
+          if [ "$REQUIRE_BILLING" = "true" ]; then
+            args+=(--require-billing)
+          fi
+          node tools/production-canary-check.mjs "${args[@]}"
+
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-${{ inputs.mode }}-evidence
+          if-no-files-found: ignore
+          path: reports/production-${{ inputs.mode }}-evidence.json

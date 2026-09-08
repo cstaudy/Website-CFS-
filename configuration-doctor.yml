@@ -1,0 +1,62 @@
+name: Creator Suite Configuration Doctor
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-environment:
+    name: GitHub production Environment
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check production Environment names
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          CFS_PRODUCTION_URL: ${{ vars.CFS_PRODUCTION_URL }}
+        run: node tools/config-doctor-v41.mjs --profile github-production --out reports/github-production-doctor.json
+
+      - name: Upload redacted doctor report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-production-doctor
+          if-no-files-found: ignore
+          path: reports/github-production-doctor.json
+
+  windows-release-environment:
+    name: GitHub windows-release Environment
+    runs-on: ubuntu-latest
+    environment: windows-release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check Windows signing Environment names
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: node tools/config-doctor-v41.mjs --profile github-windows --out reports/github-windows-doctor.json
+
+      - name: Upload redacted doctor report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-windows-doctor
+          if-no-files-found: ignore
+          path: reports/github-windows-doctor.json

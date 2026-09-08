@@ -1,0 +1,36 @@
+name: Creator Suite Final Verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  automated:
+    name: Final Automated Verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run final verification
+        run: node tools/final-verification-v42.mjs .
+
+      - name: Upload final verification pack
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cfs-final-verification-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            reports/final-verification-v42.json
+            reports/final-test-matrix.json
+            reports/final-test-matrix.md
+            reports/final-test-matrix.csv
+            reports/final-test-summary.json
+            launcher/reports/release-gate.json
+            launcher/reports/release-gate.md
