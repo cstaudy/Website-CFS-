@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+launcher/node_modules/
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.key
+*.crt
+*.cer
+
+# Generated installers / packages
+*.zip
+*.exe
+*.msi
+*.appx
+*.dmg
+
+# Electron / build output
+dist/
+launcher/dist/
+out/
+build-output/
+
+# Logs / temp / local data
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+coverage/
+.nyc_output/
+.cache/
+
+# Local CFS runtime state
+data/
+storage/
+uploads/
+launcher/user-data/
+launcher/local-data/
+
+# IDE
+.vscode/
+.idea/
